@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline AI Assistant Architecture</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1, h2 {
+            border-bottom: 2px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+        .mermaid-container {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .print-btn {
+            display: inline-block;
+            background-color: #0366d6;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            cursor: pointer;
+            border: none;
+        }
+        .print-btn:hover {
+            background-color: #0255b3;
+        }
+        @media print {
+            .print-btn { display: none; }
+            body { background-color: white; }
+            .mermaid-container { box-shadow: none; border: none; }
+            .page-break { page-break-before: always; }
+        }
+    </style>
+    <!-- Load Mermaid -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true } });
+        });
+    </script>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">🖨️ Save as PDF</button>
+
+    <h1>Offline AI Assistant Architecture</h1>
+    <p>This document contains detailed flowcharts explaining the architecture and execution flow of the Offline AI Assistant.</p>
+
+    <h2>1. High-Level System Architecture</h2>
+    <p>This flowchart shows the main components of the system and how they interact with each other.</p>
+    <div class="mermaid-container">
+        <div class="mermaid">
+graph TD
+    User((User))
+    
+    subgraph Offline Assistant [Offline AI Assistant]
+        Main[Main Controller<br/>main.py]
+        WakeWord[Wake Word Engine<br/>src/wake_word.py]
+        STT[Speech-to-Text Engine<br/>src/stt_engine.py]
+        LLM[LLM Engine<br/>src/llm_engine.py]
+        TTS[Text-to-Speech Engine<br/>src/tts_engine.py]
+    end
+
+    subgraph External Dependencies
+        Wake Word Engine[Picovoice Wake Word Engine<br/>Wake Word]
+        Vosk[Vosk Model<br/>STT]
+        Ollama[Ollama / Qwen 2.5<br/>LLM]
+        Piper[Piper TTS Model<br/>TTS]
+    end
+
+    User -- "Speaks 'Jarvis'" --> WakeWord
+    User -- "Speaks Command" --> STT
+    TTS -- "Plays Audio" --> User
+
+    Main -- "1. Start Listening" --> WakeWord
+    WakeWord -- "2. Wake Word Detected" --> Main
+    Main -- "3. Start Recording" --> STT
+    STT -- "4. Transcribed Text" --> Main
+    Main -- "5. Send Prompt" --> LLM
+    LLM -- "6. Text Response" --> Main
+    Main -- "7. Text to Speak" --> TTS
+    
+    WakeWord -.-> Wake Word Engine
+    STT -.-> Vosk
+    LLM -.-> Ollama
+    TTS -.-> Piper
+        </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2>2. Detailed Execution Flow</h2>
+    <p>This sequence diagram illustrates the step-by-step execution flow from the moment the program starts to when an interaction finishes.</p>
+    <div class="mermaid-container">
+        <div class="mermaid">
+sequenceDiagram
+    participant User
+    participant Main as Main (main.py)
+    participant WW as WakeWord (Wake Word Engine)
+    participant STT as STT (Vosk)
+    participant LLM as LLM (Ollama/Qwen 2.5)
+    participant TTS as TTS (Piper)
+    
+    Main->>Main: Initialize Components (Vosk, Piper, Ollama)
+    Main->>WW: listen_for_wake_word(sensitivity=0.4)
+    Note over WW: Listening for "Jarvis"...
+    
+    User->>WW: "Jarvis"
+    WW-->>Main: True (Wake Word Detected)
+    
+    Main->>STT: listen()
+    Note over STT: Recording via sounddevice...
+    User->>STT: "What is the capital of India?"
+    STT-->>Main: Recognized Text: "what is the capital of india"
+    
+    Main->>Main: handle_intent("what is the capital of india")
+    
+    alt Command is "stop", "exit", or "goodbye"
+        Main->>TTS: speak("Goodbye!")
+        TTS-->>User: Plays "Goodbye!" audio
+        Main->>Main: sys.exit(0)
+    else Other commands
+        Main->>LLM: generate_response(text)
+        Note over LLM: Sending prompt to local Qwen 2.5...
+        LLM-->>Main: Text Response
+        Main->>TTS: speak(response)
+        Note over TTS: Generating & Playing Audio...
+        TTS-->>User: Plays generated speech audio
+    end
+    
+    Main->>WW: loop back: listen_for_wake_word()
+        </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2>3. Data Flow Diagram</h2>
+    <p>This diagram shows how data transforms as it moves through the system.</p>
+    <div class="mermaid-container">
+        <div class="mermaid">
+flowchart LR
+    AudioIn[Microphone Audio<br/>Float32 / Int16 PCM]
+    
+    subgraph Processing Pipeline
+        WW[Wake Word<br/>Pattern Matching]
+        STT[Vosk STT<br/>Kaldi Recognizer]
+        LLM[Ollama<br/>Phi-3 Inference]
+        TTS[Piper<br/>ONNX Inference]
+    end
+    
+    AudioOut[Speaker Audio<br/>WAV File / Playback]
+
+    AudioIn -- Stream --> WW
+    AudioIn -- Stream --> STT
+    
+    WW -- Boolean Trigger --> STT
+    STT -- JSON -> String --> LLM
+    LLM -- String --> TTS
+    TTS -- File Path -> CMD Execution --> AudioOut
+        </div>
+    </div>
+</body>
+</html>
