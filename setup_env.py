@@ -16,6 +16,7 @@ def setup_env():
     pip_cmd = os.path.join("venv", "Scripts", "pip") if os.name == "nt" else os.path.join("venv", "bin", "pip")
 
     # 3. Install Dependencies
+    pip_exe = os.path.join("venv", "Scripts", "python.exe") if os.name == "nt" else os.path.join("venv", "bin", "python")
     dependencies = [
         "vosk",
         "pvporcupine",
@@ -26,8 +27,8 @@ def setup_env():
     ]
     
     print(f"Installing dependencies: {', '.join(dependencies)}...")
-    subprocess.run([pip_cmd, "install", "--upgrade", "pip"], check=True)
-    subprocess.run([pip_cmd, "install"] + dependencies, check=True)
+    subprocess.run([pip_exe, "-m", "pip", "install", "--upgrade", "pip"], check=True)
+    subprocess.run([pip_exe, "-m", "pip", "install"] + dependencies, check=True)
 
     print("\n--- Setup Complete ---")
     print("To activate the environment:")

@@ -11,11 +11,11 @@ from tts_engine import TTSEngine
 from llm_engine import LLMEngine
 
 class OfflineAssistant:
-    def __init__(self, vosk_model_path, piper_model_path, access_key):
+    def __init__(self, vosk_model_path, piper_model_path):
         self.stt = STTEngine(vosk_model_path)
         self.tts = TTSEngine(piper_model_path)
         self.llm = LLMEngine(model_name="qwen2.5:0.5b")
-        self.access_key = access_key
+        self.vosk_model_path = vosk_model_path
 
     def handle_intent(self, text):
         """
@@ -38,8 +38,8 @@ class OfflineAssistant:
     def run(self):
         print("Assistant started. System is offline.")
         while True:
-            # 1. Wait for Wake Word (Sensitivity set to 0.4 for better precision)
-            if listen_for_wake_word(self.access_key, sensitivity=0.4):
+            # 1. Wait for Wake Word (Now using Vosk)
+            if listen_for_wake_word(self.vosk_model_path, keyword='jarvis'):
                 # 2. Listen for Command
                 command = self.stt.listen()
                 
@@ -49,9 +49,8 @@ class OfflineAssistant:
 
 if __name__ == "__main__":
     # Configuration - Update paths to match your filesystem
-    VOSK_MODEL = "models/vosk/vosk-model-en-in-0.5"
+    VOSK_MODEL = "models/vosk/vosk-model-small-en-in-0.4"
     PIPER_MODEL = "models/piper/en_US-lessac-medium.onnx"
-    ACCESS_KEY = "pR8likEUwk60/EYXtHJl0LwqTnkvfoRhslABMHhaoN+HuR9EOKZr9g==" # Replace with your real key
     
-    assistant = OfflineAssistant(VOSK_MODEL, PIPER_MODEL, ACCESS_KEY)
+    assistant = OfflineAssistant(VOSK_MODEL, PIPER_MODEL)
     assistant.run()
