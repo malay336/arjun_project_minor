@@ -12,6 +12,7 @@ class STTEngine:
             sys.exit(1)
         
         self.model = vosk.Model(model_path)
+        # Use full vocabulary recognition for natural language commands
         self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
         self.q = queue.Queue()
 

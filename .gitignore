@@ -103,7 +103,9 @@ venv.bak/
 # Large files and setups
 OllamaSetup.exe
 models/
+music/
 output.wav
+startup_log.txt
 *.wav
 *.mp3
 *.exe

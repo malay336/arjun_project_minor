@@ -1,6 +1,8 @@
 import datetime
 import os
 import sys
+import time
+import msvcrt
 
 # Add src to path if needed
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -11,11 +13,11 @@ from tts_engine import TTSEngine
 from llm_engine import LLMEngine
 
 class OfflineAssistant:
-    def __init__(self, vosk_model_path, piper_model_path):
+    def __init__(self, vosk_model_path, vosk_small_model_path, piper_model_path):
         self.stt = STTEngine(vosk_model_path)
         self.tts = TTSEngine(piper_model_path)
         self.llm = LLMEngine(model_name="qwen2.5:0.5b")
-        self.vosk_model_path = vosk_model_path
+        self.vosk_small_model_path = vosk_small_model_path
 
     def search_and_play_music(self, song_name):
         """
@@ -28,20 +30,29 @@ class OfflineAssistant:
             self.tts.speak(response)
             return
 
-        # Find files matching the song name
-        files = [f for f in os.listdir(music_dir) if any(ext in f.lower() for ext in ['.mp3', '.wav', '.m4a'])]
-        match = None
-        for file in files:
-            if song_name.lower() in file.lower():
-                match = file
-                break
+        # Find files matching the song name using word-level matching
+        audio_extensions = ['.mp3', '.wav', '.m4a']
+        files = [f for f in os.listdir(music_dir) if any(f.lower().endswith(ext) for ext in audio_extensions)]
         
-        if match:
+        # Score each file by how many query words appear in the filename
+        query_words = song_name.lower().split()
+        best_match = None
+        best_score = 0
+        
+        for file in files:
+            file_lower = file.lower()
+            score = sum(1 for word in query_words if word in file_lower)
+            if score > best_score:
+                best_score = score
+                best_match = file
+        
+        # Require at least half the query words to match
+        if best_match and best_score >= max(1, len(query_words) // 2):
             response = f"Playing {song_name}."
             print(f"Assistant: {response}")
             self.tts.speak(response)
             # Use os.startfile for Windows to open the file in the default player
-            os.startfile(os.path.join(music_dir, match))
+            os.startfile(os.path.join(music_dir, best_match))
         else:
             response = f"I couldn't find a song named {song_name} in the music folder."
             print(f"Assistant: {response}")
@@ -78,19 +89,47 @@ class OfflineAssistant:
     def run(self):
         print("Assistant started. System is offline.")
         while True:
-            # 1. Wait for Wake Word (Now using Vosk)
-            if listen_for_wake_word(self.vosk_model_path, keyword='jarvis'):
+            # 1. Wait for Wake Word (using small model for fast loading)
+            if listen_for_wake_word(self.vosk_small_model_path, keyword='computer'):
                 # 2. Listen for Command
                 command = self.stt.listen()
                 
-                # 3. Handle Command
+                # 3. Allow user to edit the command if misrecognized
                 if command:
+                    print(f"\nRecognized: \"{command}\"")
+                    print("Press SPACE within 5s to edit, or wait to confirm...", end="", flush=True)
+                    
+                    # 5-second countdown with spacebar check
+                    edit_requested = False
+                    deadline = time.time() + 5
+                    while time.time() < deadline:
+                        remaining = int(deadline - time.time()) + 1
+                        print(f"\r Press SPACE within {remaining}s to edit, or wait to confirm...  ", end="", flush=True)
+                        if msvcrt.kbhit():
+                            key = msvcrt.getch()
+                            if key == b' ':
+                                edit_requested = True
+                                break
+                        time.sleep(0.2)
+                    
+                    if edit_requested:
+                        # Let user edit the existing command (pre-filled)
+                        print(f"\rEdit command: {command}", end="")
+                        # Clear the line and let user type with the original as reference
+                        edited = input(f"\rEdit command (original: \"{command}\"): ").strip()
+                        if edited:
+                            command = edited
+                    else:
+                        print(f"\r✓ Confirmed: \"{command}\"                                    ")
+                    
+                    # 4. Handle Command
                     self.handle_intent(command)
 
 if __name__ == "__main__":
     # Configuration - Update paths to match your filesystem
-    VOSK_MODEL = "models/vosk/vosk-model-small-en-in-0.4"
+    VOSK_MODEL = "models/vosk/vosk-model-en-in-0.5"          # Big model for STT (accurate)
+    VOSK_SMALL = "models/vosk/vosk-model-small-en-in-0.4"    # Small model for wake word (fast)
     PIPER_MODEL = "models/piper/en_US-lessac-medium.onnx"
     
-    assistant = OfflineAssistant(VOSK_MODEL, PIPER_MODEL)
+    assistant = OfflineAssistant(VOSK_MODEL, VOSK_SMALL, PIPER_MODEL)
     assistant.run()
